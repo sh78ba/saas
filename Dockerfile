@@ -72,55 +72,39 @@
 # # when the container starts
 # CMD ./paracord_runner.sh
 
-# Set the Python version as a build-time argument
+# Use a slim Python 3.12 image
 ARG PYTHON_VERSION=3.12-slim-bullseye
 FROM python:${PYTHON_VERSION}
 
-# Create a virtual environment
-RUN python -m venv /opt/venv
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Set the virtual environment as the current location
-ENV PATH=/opt/venv/bin:$PATH
-
-# Upgrade pip
-RUN pip install --upgrade pip
-
-# Set Python-related environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
-
-# Install system dependencies
+# Install dependencies for required packages
 RUN apt-get update && apt-get install -y \
-    libpq-dev \
-    libjpeg-dev \
-    libcairo2 \
-    gcc \
+    libpq-dev libjpeg-dev libcairo2 gcc \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory
-WORKDIR /code
+# Set up virtual environment
+RUN python -m venv /opt/venv
+RUN pip install --upgrade pip
 
-# Copy the requirements file and install dependencies
+# Create a directory for the application
+WORKDIR /app
+
+# Copy dependency file first to leverage caching
 COPY requirements.txt /tmp/requirements.txt
 RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
 # Copy project files
-COPY ./src /code
+COPY ./src /app
 
-# Set the Django default project name
-ARG PROJ_NAME="cfehome"
-
-# Create an entrypoint script for Django
-RUN printf "#!/bin/bash\n" > ./entrypoint.sh && \
-    printf "RUN_PORT=\"\${PORT:-8000}\"\n\n" >> ./entrypoint.sh && \
-    printf "python manage.py migrate --no-input\n" >> ./entrypoint.sh && \
-    printf "gunicorn ${PROJ_NAME}.wsgi:application --bind 0.0.0.0:\$RUN_PORT --workers 3\n" >> ./entrypoint.sh
-
-# Make the entrypoint script executable
-RUN chmod +x entrypoint.sh
-
-# Expose the port dynamically (Railway will use the $PORT variable)
+# Expose the correct port (default to 8000 for Railway)
 EXPOSE 8000
 
-# Run the entrypoint script when the container starts
-CMD ["./entrypoint.sh"]
+# Set the default project name (update if different)
+ARG PROJ_NAME="cfehome"
+
+# Run migrations and start the server with Gunicorn
+CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn cfehome.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 3"]
