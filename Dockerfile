@@ -89,44 +89,38 @@ RUN pip install --upgrade pip
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# # Install os dependencies for our mini vm
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    # for postgres
     libpq-dev \
-    # for Pillow
     libjpeg-dev \
-    # for CairoSVG
     libcairo2 \
-    # other
     gcc \
     && rm -rf /var/lib/apt/lists/*
-    
-# Create the app directory
 
-RUN mkdir -p /code
+# Set the working directory
 WORKDIR /code
 
-# Copy requirements file and install dependencies
+# Copy the requirements file and install dependencies
 COPY requirements.txt /tmp/requirements.txt
-RUN pip install -r /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
-# Copy the project source code
+# Copy project files
 COPY ./src /code
 
 # Set the Django default project name
 ARG PROJ_NAME="cfehome"
 
-# Create a startup script
-RUN printf "#!/bin/bash\n" > ./paracord_runner.sh && \
-    printf "PORT=\"\${PORT:-8080}\"\n\n" >> ./paracord_runner.sh && \
-    printf "python manage.py migrate --no-input\n" >> ./paracord_runner.sh && \
-    printf "gunicorn ${PROJ_NAME}.wsgi:application --bind 0.0.0.0:\$PORT --workers 3\n" >> ./paracord_runner.sh
+# Create an entrypoint script for Django
+RUN printf "#!/bin/bash\n" > ./entrypoint.sh && \
+    printf "RUN_PORT=\"\${PORT:-8000}\"\n\n" >> ./entrypoint.sh && \
+    printf "python manage.py migrate --no-input\n" >> ./entrypoint.sh && \
+    printf "gunicorn ${PROJ_NAME}.wsgi:application --bind 0.0.0.0:\$RUN_PORT --workers 3\n" >> ./entrypoint.sh
 
-# Make the script executable
-RUN chmod +x paracord_runner.sh
+# Make the entrypoint script executable
+RUN chmod +x entrypoint.sh
 
-# Expose port 8080 for Railway
-EXPOSE 8080
+# Expose the port dynamically (Railway will use the $PORT variable)
+EXPOSE 8000
 
-# Run the Django project when the container starts
-CMD ["./paracord_runner.sh"]
+# Run the entrypoint script when the container starts
+CMD ["./entrypoint.sh"]
