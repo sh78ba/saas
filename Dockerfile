@@ -1,125 +1,60 @@
+# Set the python version as a build-time argument
+ARG PYTHON_VERSION=3.12-slim-bullseye
+FROM python:${PYTHON_VERSION}
 
-from pathlib import Path
-import os
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+# Create a virtual environment
+RUN python -m venv /opt/venv
 
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
+# Set the virtual environment as the current location
+ENV PATH=/opt/venv/bin:$PATH
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-fg)#tp4kt77h(lci=3i$ssd2^vr(3sh5lau=x#1#(svfzf!9v&"
+# Upgrade pip
+RUN pip install --upgrade pip
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+# Set Python-related environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 
-PORT = os.getenv("PORT", "8080")
+# Install OS dependencies for our mini VM
+RUN apt-get update && apt-get install -y \
+    libpq-dev \  
+    libjpeg-dev \ 
+    libcairo2 \   
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-ALLOWED_HOSTS = [
-    ".railway.app",
-     "https://saas-production-4c63.up.railway.app" # https://saas.prod.railway.app
-]
-if DEBUG:
-    ALLOWED_HOSTS += [
-        "127.0.0.1",
-        "localhost"
-    ]
+# Set the working directory
+WORKDIR /code
 
-CSRF_TRUSTED_ORIGINS = ["https://saas-production-4c63.up.railway.app"]
+# Copy project files
+COPY ./src /code
+COPY requirements.txt /code/requirements.txt
 
-# Application definition
+# Install dependencies
+RUN pip install -r requirements.txt
 
-INSTALLED_APPS = [
-    # django-apps
-    "django.contrib.admin",
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django.contrib.sessions",
-    "django.contrib.messages",
-    "django.contrib.staticfiles",
-    # my-apps
-    "visits",
-]
+# Expose Django port
+EXPOSE 8000
 
-MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
-    "django.contrib.auth.middleware.AuthenticationMiddleware",
-    "django.contrib.messages.middleware.MessageMiddleware",
-    "django.middleware.clickjacking.XFrameOptionsMiddleware",
-]
+# Set Django environment variables
+ARG DJANGO_SECRET_KEY
+ENV DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
 
-ROOT_URLCONF = "cfehome.urls"
+ARG DJANGO_DEBUG=0
+ENV DJANGO_DEBUG=${DJANGO_DEBUG}
 
-TEMPLATES = [
-    {
-        "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],
-        "APP_DIRS": True,
-        "OPTIONS": {
-            "context_processors": [
-                "django.template.context_processors.debug",
-                "django.template.context_processors.request",
-                "django.contrib.auth.context_processors.auth",
-                "django.contrib.messages.context_processors.messages",
-            ],
-        },
-    },
-]
+# Set the Django default project name
+ARG PROJ_NAME="cfehome"
 
-WSGI_APPLICATION = "cfehome.wsgi.application"
+# Create a script to run migrations and start the server
+RUN printf "#!/bin/bash\n" > ./entrypoint.sh && \
+    printf "RUN_PORT=\"\${PORT:-8000}\"\n\n" >> ./entrypoint.sh && \
+    printf "python manage.py migrate --no-input\n" >> ./entrypoint.sh && \
+    printf "python manage.py collectstatic --noinput\n" >> ./entrypoint.sh && \
+    printf "gunicorn ${PROJ_NAME}.wsgi:application --bind \"0.0.0.0:\$RUN_PORT\"\n" >> ./entrypoint.sh
 
+# Make the script executable
+RUN chmod +x entrypoint.sh
 
-# Database
-# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
-
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
-
-
-# Password validation
-# https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
-
-AUTH_PASSWORD_VALIDATORS = [
-    {
-        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
-    },
-    {
-        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
-    },
-]
-
-
-# Internationalization
-# https://docs.djangoproject.com/en/5.0/topics/i18n/
-
-LANGUAGE_CODE = "en-us"
-
-TIME_ZONE = "UTC"
-
-USE_I18N = True
-
-USE_TZ = True
-
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.0/howto/static-files/
-
-STATIC_URL = "static/"
-
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
-
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+# Run the Django project when the container starts
+CMD ["./entrypoint.sh"]
