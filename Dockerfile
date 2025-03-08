@@ -1,110 +1,125 @@
-# # Set the python version as a build-time argument
-# # with Python 3.12 as the default
-# ARG PYTHON_VERSION=3.12-slim-bullseye
-# FROM python:${PYTHON_VERSION}
 
-# # Create a virtual environment
-# RUN python -m venv /opt/venv
+from pathlib import Path
+import os
+# Build paths inside the project like this: BASE_DIR / 'subdir'.
+BASE_DIR = Path(__file__).resolve().parent.parent
 
-# # Set the virtual environment as the current location
-# ENV PATH=/opt/venv/bin:$PATH
+# Quick-start development settings - unsuitable for production
+# See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
-# # Upgrade pip
-# RUN pip install --upgrade pip
+# SECURITY WARNING: keep the secret key used in production secret!
+SECRET_KEY = "django-insecure-fg)#tp4kt77h(lci=3i$ssd2^vr(3sh5lau=x#1#(svfzf!9v&"
 
-# # Set Python-related environment variables
-# ENV PYTHONDONTWRITEBYTECODE 1
-# ENV PYTHONUNBUFFERED 1
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True
 
-# # Install os dependencies for our mini vm
-# RUN apt-get update && apt-get install -y \
-#     # for postgres
-#     libpq-dev \
-#     # for Pillow
-#     libjpeg-dev \
-#     # for CairoSVG
-#     libcairo2 \
-#     # other
-#     gcc \
-#     && rm -rf /var/lib/apt/lists/*
+PORT = os.getenv("PORT", "8080")
 
-# # Create the mini vm's code directory
-# RUN mkdir -p /code
+ALLOWED_HOSTS = [
+    ".railway.app",
+     "https://saas-production-4c63.up.railway.app" # https://saas.prod.railway.app
+]
+if DEBUG:
+    ALLOWED_HOSTS += [
+        "127.0.0.1",
+        "localhost"
+    ]
 
-# # Set the working directory to that same code directory
-# WORKDIR /code
+CSRF_TRUSTED_ORIGINS = ["https://saas-production-4c63.up.railway.app"]
 
-# # Copy the requirements file into the container
-# COPY requirements.txt /tmp/requirements.txt
+# Application definition
 
-# # copy the project code into the container's working directory
-# COPY ./src /code
+INSTALLED_APPS = [
+    # django-apps
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    # my-apps
+    "visits",
+]
 
-# # Install the Python project requirements
-# RUN pip install -r /tmp/requirements.txt
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+]
 
-# # database isn't available during build
-# # run any other commands that do not need the database
-# # such as:
-# # RUN python manage.py collectstatic --noinput
+ROOT_URLCONF = "cfehome.urls"
 
-# # set the Django default project name
-# ARG PROJ_NAME="cfehome"
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
 
-# # create a bash script to run the Django project
-# # this script will execute at runtime when
-# # the container starts and the database is available
-# RUN printf "#!/bin/bash\n" > ./paracord_runner.sh && \
-#     printf "RUN_PORT=\"\${PORT:-8000}\"\n\n" >> ./paracord_runner.sh && \
-#     printf "python manage.py migrate --no-input\n" >> ./paracord_runner.sh && \
-#     printf "gunicorn ${PROJ_NAME}.wsgi:application --bind \"[::]:\$RUN_PORT\"\n" >> ./paracord_runner.sh
+WSGI_APPLICATION = "cfehome.wsgi.application"
 
-# # make the bash script executable
-# RUN chmod +x paracord_runner.sh
 
-# # Clean up apt cache to reduce image size
-# RUN apt-get remove --purge -y \
-#     && apt-get autoremove -y \
-#     && apt-get clean \
-#     && rm -rf /var/lib/apt/lists/*
+# Database
+# https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-# # Run the Django project via the runtime script
-# # when the container starts
-# CMD ./paracord_runner.sh
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
+    }
+}
 
-# Use a slim Python 3.12 image
-ARG PYTHON_VERSION=3.12-slim-bullseye
-FROM python:${PYTHON_VERSION}
 
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PATH="/opt/venv/bin:$PATH"
+# Password validation
+# https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
 
-# Install dependencies for required packages
-RUN apt-get update && apt-get install -y \
-    libpq-dev libjpeg-dev libcairo2 gcc \
-    && rm -rf /var/lib/apt/lists/*
+AUTH_PASSWORD_VALIDATORS = [
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
+    },
+    {
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
+    },
+]
 
-# Set up virtual environment
-RUN python -m venv /opt/venv
-RUN pip install --upgrade pip
 
-# Create a directory for the application
-WORKDIR /app
+# Internationalization
+# https://docs.djangoproject.com/en/5.0/topics/i18n/
 
-# Copy dependency file first to leverage caching
-COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir -r /tmp/requirements.txt
+LANGUAGE_CODE = "en-us"
 
-# Copy project files
-COPY ./src /app
+TIME_ZONE = "UTC"
 
-# Expose the correct port (default to 8000 for Railway)
-EXPOSE 8000
+USE_I18N = True
 
-# Set the default project name (update if different)
-ARG PROJ_NAME="cfehome"
+USE_TZ = True
 
-# Run migrations and start the server with Gunicorn
-CMD ["sh", "-c", "python manage.py migrate --noinput && gunicorn cfehome.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 3"]
+
+# Static files (CSS, JavaScript, Images)
+# https://docs.djangoproject.com/en/5.0/howto/static-files/
+
+STATIC_URL = "static/"
+
+# Default primary key field type
+# https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
