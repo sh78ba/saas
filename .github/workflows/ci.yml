@@ -7,8 +7,7 @@ on:
 
 jobs:
   build:
-    runs-on: ubuntu-latest # Change the runner to Amazon Linux
-    # amazonlinux-latest 
+    runs-on: amazonlinux-latest 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
