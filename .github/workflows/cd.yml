@@ -29,9 +29,10 @@ jobs:
       shell: bash
       run: |
         ssh -o StrictHostKeyChecking=no -i ~/Saas.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
-          sudo chown -R $USER:$USER /home/${{ secrets.EC2_USER }}/saas &&
-          sudo chmod -R 775 /home/${{ secrets.EC2_USER }}/saas
+        sudo chown -R ${{ secrets.EC2_USER }}:${{ secrets.EC2_USER }} /home/${{ secrets.EC2_USER }}/saas &&
+        sudo chmod -R 775 /home/${{ secrets.EC2_USER }}/saas
         "
+
 
     - name: Start Docker Containers
       shell: bash
