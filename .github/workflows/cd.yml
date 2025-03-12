@@ -22,12 +22,21 @@ jobs:
     - name: Deploy Code
       shell: bash
       run: |
-        # Copy all project files to the EC2 instance
-        scp -o StrictHostKeyChecking=no -i ~/Saas.pem -r . ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USER }}/saas
+        # Copy all project files except .git to EC2
+        rsync -avz --exclude='.git' --exclude='.github' -e "ssh -i ~/Saas.pem -o StrictHostKeyChecking=no" . ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USER }}/saas
 
-        
-        # SSH into the EC2 instance and deploy
+    - name: Set Permissions
+      shell: bash
+      run: |
+        ssh -o StrictHostKeyChecking=no -i ~/Saas.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
+          sudo chown -R $USER:$USER /home/${{ secrets.EC2_USER }}/saas &&
+          sudo chmod -R 775 /home/${{ secrets.EC2_USER }}/saas
+        "
+
+    - name: Start Docker Containers
+      shell: bash
+      run: |
         ssh -o StrictHostKeyChecking=no -i ~/Saas.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
           cd /home/${{ secrets.EC2_USER }}/saas &&
-          docker-compose up --build -d
+          sudo docker-compose up --build -d
         "
