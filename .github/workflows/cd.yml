@@ -16,8 +16,8 @@ jobs:
     - name: Set Up SSH Key
       shell: bash
       run: |
-        echo "${{ secrets.EC2_KEY }}" > ~/Saas.pem
-        chmod 400 ~/Saas.pem
+        echo "${{ secrets.EC2_KEY }}" > /Users/shantanubasumatary/Projects/django/saas/Saas.pem
+        chmod 400 /Users/shantanubasumatary/Projects/django/saas/Saas.pem
 
     - name: Deploy Code
       shell: bash
