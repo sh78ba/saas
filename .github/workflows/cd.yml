@@ -16,17 +16,18 @@ jobs:
     - name: Set Up SSH Key
       shell: bash
       run: |
-        echo "${{ secrets.EC2_KEY }}" > /Users/shantanubasumatary/Projects/django/saas/Saas.pem
-        chmod 400 /Users/shantanubasumatary/Projects/django/saas/Saas.pem
+        echo "${{ secrets.EC2_KEY }}" > ~/Saas.pem
+        chmod 400 ~/Saas.pem
 
     - name: Deploy Code
       shell: bash
       run: |
         # Copy all project files to the EC2 instance
-        scp -o StrictHostKeyChecking=no -i /Users/shantanubasumatary/Projects/django/saas/Saas.pem -r /Users/shantanubasumatary/Projects/django/saas/* ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USER }}/saas
+        scp -o StrictHostKeyChecking=no -i ~/Saas.pem -r . ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USER }}/saas
+
         
         # SSH into the EC2 instance and deploy
-        ssh -o StrictHostKeyChecking=no -i /Users/shantanubasumatary/Projects/django/saas/Saas.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
+        ssh -o StrictHostKeyChecking=no -i ~/Saas.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} "
           cd /home/${{ secrets.EC2_USER }}/saas &&
           docker-compose up --build -d
         "
